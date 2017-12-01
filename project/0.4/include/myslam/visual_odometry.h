@@ -24,6 +24,7 @@
 #include "myslam/map.h"
 
 #include <opencv2/features2d/features2d.hpp>
+#include <opencv2/xfeatures2d.hpp>
 
 namespace myslam 
 {
@@ -44,6 +45,22 @@ public:
     Frame::Ptr  curr_;      // current frame 
     
     cv::Ptr<cv::ORB> orb_;  // orb detector and computer 
+
+    // good features to detect
+    int corner_count = 3000;       // number of features
+    double quality_level = 0.001; // good features to track quality
+    int min_distance = 12;        // pixel distance between nearest features
+    cv::Ptr<cv::GFTTDetector> gftt = cv::GFTTDetector::create(
+            corner_count,
+            quality_level,
+            min_distance);
+
+    // FREAK feature descriptor
+    cv::Ptr<cv::xfeatures2d::FREAK> freak = cv::xfeatures2d::FREAK::create(
+            false, // orientation normalization
+            false // scale normalization
+            );
+    
     vector<cv::KeyPoint>    keypoints_curr_;    // keypoints in current frame
     Mat                     descriptors_curr_;  // descriptor in current frame 
     
@@ -79,6 +96,7 @@ protected:
     void featureMatching();
     void poseEstimationPnP(); 
     void optimizeMap();
+    void trackFeartures();
     
     void addKeyFrame();
     void addMapPoints();

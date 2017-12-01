@@ -1,14 +1,15 @@
 # Find the header files
 
 FIND_PATH(G2O_INCLUDE_DIR g2o/core/base_vertex.h
-  ${G2O_ROOT}/include
-  $ENV{G2O_ROOT}/include
-  $ENV{G2O_ROOT}
-  /usr/local/include
-  /usr/include
-  /opt/local/include
-  /sw/local/include
-  /sw/include
+  /home/alex/slambook/3rdparty/g2o
+  #${G2O_ROOT}/include
+  #$ENV{G2O_ROOT}/include
+  #$ENV{G2O_ROOT}
+  #/usr/local/include
+  #/usr/include
+  #/opt/local/include
+  #/sw/local/include
+  #/sw/include
   NO_DEFAULT_PATH
   )
 
@@ -21,6 +22,7 @@ MACRO(FIND_G2O_LIBRARY MYLIBRARY MYLIBRARYNAME)
   FIND_LIBRARY("${MYLIBRARY}_DEBUG"
     NAMES "g2o_${MYLIBRARYNAME}_d"
     PATHS
+    /home/alex/slambook/3rdparty/g2o/lib
     ${G2O_ROOT}/lib/Debug
     ${G2O_ROOT}/lib
     $ENV{G2O_ROOT}/lib/Debug
@@ -31,6 +33,7 @@ MACRO(FIND_G2O_LIBRARY MYLIBRARY MYLIBRARYNAME)
   FIND_LIBRARY("${MYLIBRARY}_DEBUG"
     NAMES "g2o_${MYLIBRARYNAME}_d"
     PATHS
+    /home/alex/slambook/3rdparty/g2o/lib
     ~/Library/Frameworks
     /Library/Frameworks
     /usr/local/lib
@@ -45,6 +48,7 @@ MACRO(FIND_G2O_LIBRARY MYLIBRARY MYLIBRARYNAME)
   FIND_LIBRARY(${MYLIBRARY}
     NAMES "g2o_${MYLIBRARYNAME}"
     PATHS
+    /home/alex/slambook/3rdparty/g2o/lib
     ${G2O_ROOT}/lib/Release
     ${G2O_ROOT}/lib
     $ENV{G2O_ROOT}/lib/Release
@@ -55,6 +59,7 @@ MACRO(FIND_G2O_LIBRARY MYLIBRARY MYLIBRARYNAME)
   FIND_LIBRARY(${MYLIBRARY}
     NAMES "g2o_${MYLIBRARYNAME}"
     PATHS
+    /home/alex/slambook/3rdparty/g2o3/lib
     ~/Library/Frameworks
     /Library/Frameworks
     /usr/local/lib

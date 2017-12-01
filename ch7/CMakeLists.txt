@@ -12,11 +12,12 @@ find_package( OpenCV 3.1 REQUIRED )
 find_package( G2O REQUIRED )
 find_package( CSparse REQUIRED )
 
+
 include_directories( 
     ${OpenCV_INCLUDE_DIRS} 
     ${G2O_INCLUDE_DIRS}
     ${CSPARSE_INCLUDE_DIR}
-    "/usr/include/eigen3/"
+    "/usr/local/include/eigen3/"
 )
 
 add_executable( feature_extraction feature_extraction.cpp  )
@@ -33,8 +34,9 @@ target_link_libraries( triangulation ${OpenCV_LIBS} )
 add_executable( pose_estimation_3d2d pose_estimation_3d2d.cpp )
 target_link_libraries( pose_estimation_3d2d 
    ${OpenCV_LIBS}
+   /home/alex/g2o/lib/libg2o_solver_cholmod.so
+   g2o_core g2o_stuff g2o_types_sba g2o_csparse_extension g2o_solver_csparse
    ${CSPARSE_LIBRARY}
-   g2o_core g2o_stuff g2o_types_sba g2o_csparse_extension
 )
 
 add_executable( pose_estimation_3d3d pose_estimation_3d3d.cpp )

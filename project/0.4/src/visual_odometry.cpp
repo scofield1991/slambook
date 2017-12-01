@@ -20,6 +20,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
+#include "opencv2/video/tracking.hpp"
 #include <algorithm>
 #include <boost/timer.hpp>
 
@@ -68,8 +69,9 @@ bool VisualOdometry::addFrame ( Frame::Ptr frame )
     {
         curr_ = frame;
         curr_->T_c_w_ = ref_->T_c_w_;
-        extractKeyPoints();
-        computeDescriptors();
+        trackFeartures();
+        //extractKeyPoints();
+        //computeDescriptors();
         featureMatching();
         poseEstimationPnP();
         if ( checkEstimatedPose() == true ) // a good estimation
@@ -106,14 +108,32 @@ bool VisualOdometry::addFrame ( Frame::Ptr frame )
 void VisualOdometry::extractKeyPoints()
 {
     boost::timer timer;
-    orb_->detect ( curr_->color_, keypoints_curr_ );
+    //orb_->detect ( curr_->color_, keypoints_curr_ );
+    gftt->detect ( curr_->color_, keypoints_curr_ );
+    curr_->keypoints_ = keypoints_curr_;
+
     cout<<"extract keypoints cost time: "<<timer.elapsed() <<endl;
 }
 
 void VisualOdometry::computeDescriptors()
 {
     boost::timer timer;
-    orb_->compute ( curr_->color_, keypoints_curr_, descriptors_curr_ );
+
+    //orb_->compute ( curr_->color_, keypoints_curr_, descriptors_curr_ );
+    freak->compute ( curr_->color_, keypoints_curr_, descriptors_curr_ );
+
+    vector<cv::Point2f> points_curr_;
+
+    for(int i=0; i<keypoints_curr_.size(); i++) 
+    {
+        points_curr_.push_back(keypoints_curr_[i].pt);
+    }
+
+    curr_->points_ = points_curr_;
+    cout << "keypoints_curr_: " << keypoints_curr_.size() << "\n";
+    cout << "curr_->points_: " << curr_->points_.size() << "\n";
+    cout << "descriptors_: " << descriptors_curr_.size() << "\n";
+    curr_->descriptors_ = descriptors_curr_;
     cout<<"descriptor computation cost time: "<<timer.elapsed() <<endl;
 }
 
@@ -160,6 +180,89 @@ void VisualOdometry::featureMatching()
     cout<<"match cost time: "<<timer.elapsed() <<endl;
 }
 
+double dist2(const cv::Point2f &a, const cv::Point2f &b)
+{
+        return (a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y);
+}
+void VisualOdometry::trackFeartures()
+{
+
+    int lkt_window = 21;
+    int lkt_pyramid = 4;
+    int flow_outlier = 20000;
+    int img_width = 1226; // kitti data
+    int img_height = 370;
+
+    int m = ref_->points_.size();
+    std::vector<cv::Point2f> points1(m), points2(m);
+    
+    for(int i=0; i<m; i++) {
+        points1[i] = ref_->keypoints_[i].pt;
+    }
+    std::vector<unsigned char> status;
+    std::vector<float> err;
+
+    cv::calcOpticalFlowPyrLK(
+            ref_->color_,
+            curr_->color_,
+            ref_->points_,
+            points2,
+            status,
+            err,
+            cv::Size(lkt_window, lkt_window),
+            lkt_pyramid,
+            cv::TermCriteria(
+                CV_TERMCRIT_ITER | CV_TERMCRIT_EPS,
+                30,
+                0.01
+                ),
+            0
+            );
+
+
+    cout << "descriptors_: " << ref_->descriptors_.size() << "\n";
+    std::vector<int> indeces_to_erase;
+    for(int i=0; i<m; i++) {
+        if(!status[i]) 
+        {
+                indeces_to_erase.push_back(i);
+                continue;
+
+        }
+        if(dist2(ref_->points_[i], points2[i]) > flow_outlier) 
+        {
+            indeces_to_erase.push_back(i);
+            continue;
+        }
+        // somehow points can be tracked to negative x and y
+        if(points2[i].x < 0 || points2[i].y < 0 ||
+                points2[i].x >= img_width ||
+                points2[i].y >= img_height) 
+        {
+            indeces_to_erase.push_back(i);
+            continue;
+        }
+
+        curr_->points_.push_back(points2[i]);
+        curr_->descriptors_.push_back(ref_->descriptors_.row(i));
+    }
+    for (int i = 0; i < indeces_to_erase.size(); i++ )
+    {
+        map_->map_points_.erase(indeces_to_erase[i]);
+        ref_->points_.erase(ref_->points_.begin() + indeces_to_erase[i]);
+    }
+
+    cout << "map_->map_points_: " << map_->map_points_.size() << "\n";
+    cout << "ref_->points_: " << ref_->points_.size() << "\n";
+    cout << "curr_->points_: " << curr_->points_.size() << "\n";
+    // somehow points can be tracked to negative x and y
+    //if(points2[i].x < 0 || points2[i].y < 0 ||
+    //        points2[i].x >= img_width ||
+    //        points2[i].y >= img_height) {
+    //continue;
+    //}
+}
+
 void VisualOdometry::poseEstimationPnP()
 {
     // construct the 3d 2d observations
@@ -190,6 +293,7 @@ void VisualOdometry::poseEstimationPnP()
                        );
 
     // using bundle adjustment to optimize the pose
+    /*
     typedef g2o::BlockSolver<g2o::BlockSolverTraits<6,2>> Block;
     Block::LinearSolverType* linearSolver = new g2o::LinearSolverDense<Block::PoseMatrixType>();
     Block* solver_ptr = new Block ( linearSolver );
@@ -228,7 +332,7 @@ void VisualOdometry::poseEstimationPnP()
         pose->estimate().rotation(),
         pose->estimate().translation()
     );
-    
+    */
     cout<<"T_c_w_estimated_: "<<endl<<T_c_w_estimated_.matrix()<<endl;
 }
 
@@ -264,28 +368,37 @@ bool VisualOdometry::checkKeyFrame()
 
 void VisualOdometry::addKeyFrame()
 {
-    if ( map_->keyframes_.empty() )
-    {
+    map_->map_points_.clear();
+    std::vector<int> indeces_to_erase;
+
         // first key-frame, add all 3d points into map
-        for ( size_t i=0; i<keypoints_curr_.size(); i++ )
+        for ( size_t i=0; i<curr_->points_.size(); i++ )
         {
-            double d = curr_->findDepth ( keypoints_curr_[i] );
-            if ( d < 0 ) 
+            double d = curr_->findDepth ( curr_->points_[i] );
+            //std::cout << "d: " << d << "\n";
+            if ( d < 0 || d > 4000)
+            {
+                indeces_to_erase.push_back(i); 
                 continue;
+            }
             Vector3d p_world = ref_->camera_->pixel2world (
-                Vector2d ( keypoints_curr_[i].pt.x, keypoints_curr_[i].pt.y ), curr_->T_c_w_, d
+                Vector2d ( curr_->points_[i].x, curr_->points_[i].y ), curr_->T_c_w_, d
             );
             Vector3d n = p_world - ref_->getCamCenter();
             n.normalize();
             MapPoint::Ptr map_point = MapPoint::createMapPoint(
-                p_world, n, descriptors_curr_.row(i).clone(), curr_.get()
+                p_world, n, curr_->descriptors_.row(i).clone(), curr_.get()
             );
             map_->insertMapPoint( map_point );
         }
-    }
+
+    for (int i = 0; i < indeces_to_erase.size(); i++ )
+        curr_->points_.erase(curr_->points_.begin() + indeces_to_erase[i]);
     
     map_->insertKeyFrame ( curr_ );
     ref_ = curr_;
+    cout << "curr_->points_.size(): " << curr_->points_.size() << "\n";
+    cout << "map->map_points_.size(): " << map_->map_points_.size() << "\n";
 }
 
 void VisualOdometry::addMapPoints()
@@ -298,7 +411,7 @@ void VisualOdometry::addMapPoints()
     {
         if ( matched[i] == true )   
             continue;
-        double d = ref_->findDepth ( keypoints_curr_[i] );
+        double d = ref_->findDepth ( curr_->points_[i] );
         if ( d<0 )  
             continue;
         Vector3d p_world = ref_->camera_->pixel2world (

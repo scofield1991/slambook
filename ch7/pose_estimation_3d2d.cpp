@@ -147,11 +147,14 @@ void bundleAdjustment (
 {
     // 初始化g2o
     typedef g2o::BlockSolver< g2o::BlockSolverTraits<6,3> > Block;  // pose 维度为 6, landmark 维度为 3
-    Block::LinearSolverType* linearSolver = new g2o::LinearSolverCSparse<Block::PoseMatrixType>(); // 线性方程求解器
+    //Block::LinearSolverType* linearSolver = new g2o::LinearSolverCSparse<Block::PoseMatrixType>(); // 线性方程求解器
+    Block::LinearSolverType *linearSolver = new g2o::LinearSolverCSparse<Block::PoseMatrixType>();
     Block* solver_ptr = new Block ( linearSolver );     // 矩阵块求解器
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg ( solver_ptr );
     g2o::SparseOptimizer optimizer;
     optimizer.setAlgorithm ( solver );
+
+    
 
     // vertex
     g2o::VertexSE3Expmap* pose = new g2o::VertexSE3Expmap(); // camera pose

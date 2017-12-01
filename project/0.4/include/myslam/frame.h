@@ -37,8 +37,10 @@ public:
     SE3                            T_c_w_;      // transform from world to camera
     Camera::Ptr                    camera_;     // Pinhole RGBD Camera model 
     Mat                            color_, depth_; // color and depth image 
-    // std::vector<cv::KeyPoint>      keypoints_;  // key points in image
-    // std::vector<MapPoint*>         map_points_; // associated map points
+    std::vector<cv::KeyPoint>      keypoints_;     // key points in image
+    std::vector<cv::Point2f>       points_;
+    Mat                            descriptors_;  
+    std::vector<MapPoint*>         map_points_; // associated map points
     bool                           is_key_frame_;  // whether a key-frame
     
 public: // data members 
@@ -50,6 +52,7 @@ public: // data members
     
     // find the depth in depth map
     double findDepth( const cv::KeyPoint& kp );
+    double findDepth ( const cv::Point2f& pt );
     
     // Get Camera Center
     Vector3d getCamCenter() const;

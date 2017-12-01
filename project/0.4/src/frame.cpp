@@ -44,6 +44,7 @@ Frame::Ptr Frame::createFrame()
     return Frame::Ptr( new Frame(factory_id++) );
 }
 
+/*
 double Frame::findDepth ( const cv::KeyPoint& kp )
 {
     int x = cvRound(kp.pt.x);
@@ -69,6 +70,33 @@ double Frame::findDepth ( const cv::KeyPoint& kp )
     }
     return -1.0;
 }
+*/
+double Frame::findDepth ( const cv::Point2f& pt )
+{
+    int x = cvRound(pt.x);
+    int y = cvRound(pt.y);
+    ushort d = depth_.ptr<ushort>(y)[x];
+    if ( d!=0 )
+    {
+        return double(d)/camera_->depth_scale_;
+    }
+    else 
+    {
+        // check the nearby points 
+        int dx[4] = {-1,0,1,0};
+        int dy[4] = {0,-1,0,1};
+        for ( int i=0; i<4; i++ )
+        {
+            d = depth_.ptr<ushort>( y+dy[i] )[x+dx[i]];
+            if ( d!=0 )
+            {
+                return double(d)/camera_->depth_scale_;
+            }
+        }
+    }
+    return -1.0;
+}
+
 
 void Frame::setPose ( const SE3& T_c_w )
 {
